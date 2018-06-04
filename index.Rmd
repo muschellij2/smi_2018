@@ -2,234 +2,373 @@
 title: "Imaging Statistics in R"
 subtitle: 'https://github.com/muschellij2/Neuroimaging_in_R'
 author: "John Muschelli http://johnmuschelli.com/smi_2018"
-bibliography: "index.bib"
 output:
   ioslides_presentation:
     self_contained: false
     includes:
       in_header: header.html
-    css: john.css
-    fig_width: 5
-    fig_height: 5
-  slidy_presentation:
-    self_contained: false
-    includes:
-      in_header: header.html
-    css: john.css
-    fig_width: 5
-    fig_height: 5
+    css: neuroconductor.css
+    widescreen: yes
+bibliography: refs.bib
+logo: bloomberg.logo.small.horizontal.blue.png
 ---
 
-```{r knit-setup, echo=FALSE, results='hide', eval=TRUE, cache = FALSE, warning = FALSE, message = FALSE}
-rm( list = ls() )
-library(knitr)
-library(scales)
-library(ANTsR)
-library(extrantsr)
-
-options(fsl.path = "/usr/local/fsl/")
-options(fsl.outputtype = "NIFTI_GZ")
-library(fslr)
-
-library(knitcitations)
-library(RefManageR)
-cleanbib()
-options(citation_format = "pandoc")
-bib <- ReadBib("index.bib", check = TRUE)
-opts_chunk$set(cache = TRUE, comment = "", warning = FALSE)
-hook1 <- function(x){ gsub("```\n*```r*\n*", "", x) }
-hook2 <- function(x){ gsub("```\n+```\n", "", x) }
-knit_hooks$set(document = hook2)
-```
-
-## What can we do in R?
-
-1. Read/Write Images
-2. Visualization of Images
-3. Inhomogeneity/Bias Field Correction
-4. Skull Stripping/Brain Extraction
-5. Image Registration
-6. Tissue-Class Segmentation
-7. Image operations
-8. Complex Modeling (yeah - it's R)
-
-
-## Data used from NITRC
-
-Multi-modal dataset from HAMMER, (NIfTI conversion from ANALYZE).  
-
-- Data from https://www.nitrc.org/frs/?group_id=187 (testing folder in White_Matter_Lesion_Segmentation_Testdata.zip)
-
-- 4 MRI sequences: **T1-weighted**, T2-weighted, PD, **FLAIR**
-
-```{r makefiles, echo=FALSE}
-files = c(t1 = "T1.nii.gz",
-          t2 = "T2.nii.gz",
-          pd = "PD.nii.gz",
-          flair = "FLAIR.nii.gz")
-```
-
-```{r showfiles, dependson = "makefiles"}
-files
-```
-
-## Starting from Raw Data/DICOM
-
-- `oro.dicom` - read/write DICOM data, the nifti object
-    - Pure R implementation
-- `dcm2niir` - uses `dcm2nii` from Chris Rorden
-    - Handles **MANY** scanner types
-    - Located at https://github.com/muschellij2/dcm2niir
-- `matlabr` - could use `dicomread` MATLAB code and excecute through R
-    - Located at https://github.com/muschellij2/matlabr
-
-
-## Introduction: Packages
-Medical Imaging Task View
-
-- `dti` - adaptive smoothing and diffusion tensor tools
-
-- `fmri` - post-processing analysis: linear models and p-value smoothing
-- `AnalyzeFMRI` - fMRI analysis (last updated in 2013)
-- `spm12r` package calls out MATLAB using SPM 
-
-## Introduction: Packages used Here
-Medical Imaging Task View
-
-- `oro.nifti`: read/write data, the nifti object
-- `fslr`: process data (need FSL for most of the functionality)
-- **`ANTsR`: process data (full toolbox)**
-    - Located at https://github.com/stnava/ANTsR
-- **`extrantsr`: makes ANTsR work with nifti objects**
-
-
-## Basics: Read in the Files!
-
-fslr: `readnii` uses `oro.nifti::readNIfTI`:
-```{r read_t1, message=FALSE}
-library(fslr)
-base_t1 = readnii(files["t1"])
-```
-
-```{r read_t1_run, results='hide', echo = FALSE, message = FALSE}
-base_t1 = robust_window(base_t1)
-```
-
-- like an array
-- ANTsR uses pointers (faster), but not as intuitive
-
-## Orthographic View
-
-```{r ortho, message=FALSE, fig.height = 4, fig.width= 6, dependson = "read_t1_run"}
-library(fslr)
-fslr::ortho2(base_t1)
-```
-
-## Orthographic Overlays
-
-```{r ortho_overlay_noalpha, message=FALSE, fig.height = 4, fig.width= 6, dependson = "read_t1_run"}
-over_50 = mask_img(base_t1, base_t1 > 40); ortho2(base_t1, over_50)
-```
-
-## Image Slices
-
-```{r image, message=FALSE, dependson = "read_t1_run"}
-image(base_t1, z = 55, plot.type = "single")
-```
-
-
-## Slice Overlays
-
-```{r overlay, message=FALSE, dependson = "read_t1_run"}
-over_50[over_50 <= 0] = NA; over_50 = cal_img(over_50)
-overlay(base_t1, over_50, z = 55, plot.type = "single")
-```
-
-
-## Cropped Image Slices
-
-```{r cropped_ortho1, message=FALSE, echo = FALSE, fig.width=5, fig.height=5, dependson = "read_t1_run"}
-mask = oMask(base_t1)
-mask = oMath(mask, "MD", 7)
-cropped = dropEmptyImageDimensions(mask, other.imgs = base_t1)$other.imgs
-image(cropped, z = floor(dim(cropped)[3]/2), plot.type = "single")
-```
+<script type="text/javascript" src="papaya.js"></script>
+<script type="text/css" src="papaya.css"></script>
 
 
 
-## Bias Field Correction
-
-ANTsR/extrantsr 
-
-- `bias_correct` from `extrantsr` package calls `ANTsR::n4BiasFieldCorrection` [@tustison_n4itk_2010]
-- EM-like, assumes bias is smooth over space, logs the data
-
-```{r bias_corr}
-library(extrantsr)
-n4_t1 = bias_correct(file = base_t1, correction = "N4", retimg = TRUE)
-```
-
-fslr: Uses method by @sled1998nonparametric (slow)
-```{r fsl_bc}
-bc_t1 = fsl_biascorrect(file = base_t1)
-```
-
-## Bias Field Correction: Results
-```{r bias_noshow, fig.height = 4, fig.width= 6, eval = FALSE}
-ratio = finite_img(n4_t1 / base_t1)
-ortho2(n4_t1, ratio, col.y = alpha(hotmetal(), 0.75))
-```
-
-```{r bias, fig.height = 4, fig.width= 6, eval = TRUE, echo = FALSE}
-ratio = finite_img(n4_t1 / base_t1)
-ratio = robust_window(ratio)
-ortho2(robust_window(n4_t1), ratio, col.y = alpha(hotmetal(), 0.75))
-```
-
-
-## Skull Stripping: FSL BET `r #citep("smith_fast_2002")`
-
-```{r bet}
-ss_t1 = fslbet(n4_t1, outfile = "SS_Image")
-```
-```{r plotbet, echo=FALSE, dependson = "bet", fig.height = 4, fig.width= 6}
-ortho2(ss_t1)
-```
-
-
-## Overlaying Skull Stripped mask
-
-```{r ortho_overlay, message=FALSE, dependson = "bet", fig.height = 4, fig.width= 6}
-mask = ss_t1 > 0
-ortho2(base_t1, y = mask, col.y = alpha("red", 0.5))
-```
-
-## Visualization: Cropped Image Slices
-
-```{r cropped_ortho_overlay, message=FALSE, dependson = "bet", fig.height = 4.5, fig.width= 4.5}
-cropped = dropEmptyImageDimensions(ss_t1)
-image(cropped, z = floor(dim(cropped)[3]/2), plot.type = "single")
-```
-
-## Visualization: 3-dimensions
-
-- `rgl`, `misc3d` (`contour3d` function)
-- `brainR` - put on a webpage with some controls
-
-```{r spinning_brain_run, message=FALSE, results='hide', eval = TRUE, echo = FALSE}
-if (!all(file.exists("cage.gif", "grid.gif"))) {
-  devtools::source_gist("bd40d10afabc503d71e8")
+<style type="text/css">
+article {
+  font-size: 30pt;
 }
+</style>
+
+```{r knit-setup, include = FALSE}
+library(knitr)
+opts_chunk$set(cache = TRUE, comment = "", warning = FALSE, echo = FALSE,
+               message = FALSE)
+library(ggplot2)
+library(readr)
+# library(scales)
+# library(ANTsR)
+# library(extrantsr)
+# 
+# options(fsl.path = "/usr/local/fsl/")
+# options(fsl.outputtype = "NIFTI_GZ")
+# library(fslr)
+# 
+# library(knitcitations)
+# library(RefManageR)
+# cleanbib()
+# options(citation_format = "pandoc")
+# bib <- ReadBib("index.bib", check = TRUE)
+# 
+# hook1 <- function(x){ gsub("```\n*```r*\n*", "", x) }
+# hook2 <- function(x){ gsub("```\n+```\n", "", x) }
+# knit_hooks$set(document = hook2)
 ```
 
-```{r spinning_brain, message=FALSE, results='hide', eval = FALSE}
-devtools::source_gist("bd40d10afabc503d71e8")
+## CRAN Packages 5-10 years ago vs. today
+
+- BioC+GitHub `15258` <p style="font-size:12pt">(https://www.rdocumentation.org/)</div>
+<div style="font-size:10pt">
+Script from [https://gist.github.com/daroczig/3cf06d6db4be2bbe3368](https://gist.github.com/daroczig/3cf06d6db4be2bbe3368)
+</div>
+```{r}
+## plot trend
+pkgs = read_csv("results.csv")
+ggplot(pkgs, aes(as.Date(first_release), index)) +
+    geom_line(size = 2) +
+    scale_x_date(date_breaks = '2 year', date_labels = '%Y') +
+    scale_y_continuous(breaks = seq(0, 14000, 1000)) +
+    xlab('') + ylab("Year") + theme_bw() +
+    ggtitle('Number of R packages ever published on CRAN')
 ```
 
-<img src="cage.gif" style="width: 45%; display: block; margin: auto;">
 
 
-## Rigid-Body Registration
+
+## Imaging in R: 5 years ago
+
+
+```{r, out.width = "95%"}
+knitr::include_graphics("figure/imaging_task_view.png")
+```
+
+----
+<div class="container"> 
+<div id="left_col2"> 
+  <h2>Workflow: 5 years ago</h2>
+<div style='font-size: 32pt;'>
+
+- bash <img src="figure/Bash-new-600x600.png" style="width:20%; display: inline; margin: auto;" alt="flow"> 
+- FSL <img src="figure/FSL.png" style="width:20%; display: inline; margin: auto;" alt="flow"> 
+- ANTs <img src="figure/ants.png" style="width:20%; display: inline; margin: auto;" alt="flow"> 
+- MRIcroGL <img src="figure/mricrogl.png" style="width:20%; display: inline; margin: auto;" alt="flow"> 
+- OsiriX <img src="figure/OsiriX.png" style="width:20%; display: inline; margin: auto;" alt="flow"> 
+- SPM 12 <img src="figure/spm12.png" style="width:20%; display: inline; margin: auto;" alt="flow"> 
+
+</div>
+  </div>    
+  <div id="right_col2">
+<img src="figure/workflow_edited_nonR.png" style="width:70%; display: block; margin: auto;" alt="flow">
+  </div>
+</div>
+
+
+----
+<div class="container"> 
+<div id="left_col2"> 
+  <h2>Workflow: 5 years ago</h2>
+<div style='font-size: 32pt;'>
+  
+Multiple pieces of software used
+
+  - all different syntax
+</div>
+  </div>    
+  <div id="right_col2">
+<img src="figure/workflow_edited_nonR.png" style="width:70%; display: block; margin: auto;" alt="flow">
+  </div>
+</div>
+
+
+# R: Programming and Interface Language 
+
+
+----
+<div class="container"> 
+<div id="left_col2"> 
+  <h2>Workflow: Now</h2>
+<div style='font-size: 24pt;'>
+  
+- all R code
+    - interface/pipeline tool
+    - "native" R code
+
+Complete pipeline
+  
+  - preprocessing and analysis
+</div>
+  </div>    
+  <div id="right_col2">
+<img src="figure/workflow_edited_R.png" style="width:70%; display: block; margin: auto;" alt="flow">
+  </div>
+</div>
+
+## Imaging in R: Now
+
+```{r, out.width = "95%"}
+knitr::include_graphics("figure/neuroc.png")
+```
+
+
+## Weaknesses of Imaging in R
+
+<div id = "left_col">
+- Speed, but `Rcpp`, not always ported to `Rcpp`
+  - A lot of work to inferface with large libraries
+- Memory issues 
+- MATLAB is more popular and has GUIs
+- System Dependencies are not handled well in packages
+
+</div>
+<div id = "right_col">
+```{r, out.width = "100%"}
+knitr::include_graphics("figure/need_for_speed.gif")
+```
+<div style="font-size:10pt">https://giphy.com/gifs/top-gun-need-for-speed-i-feel-the-26AHLNr8en8J3ovOo</div>
+
+- e.g. (fsl, FSL, install FSL at https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation)
+
+</div>
+
+## Strengths of Imaging in R
+
+<div id = "left_col">
+
+- Free
+- Large/strong R community
+- RStudio
+- Validated statistical models
+- Package development system
+- Neuroconductor
+- Shiny
+</div>
+<div id = "right_col">
+```{r, out.width = "100%"}
+knitr::include_graphics("figure/always_use_r.jpg")
+```
+<div style="font-size:10pt">https://imgflip.com/i/2blglk</div>
+
+</div>
+
+## Threats of Imaging in R
+
+- Not much different than Python 
+    - scikit-learn/ Nipype
+- Neural Networks 
+- BME have tools to do advanced statistical analysis
+- **Study design is not as valued in imaging (neuro)**
+  - one stronghold of statisticians
+- Credit/Incentives for software
+
+## Opportunities of Imaging in R
+
+- Neural Networks: Keras and Tensorflow
+- Most analyses still do general linear models
+- Genomic analyses are very similar
+  - use Bioconductor tools in a new way
+- More complex study designs are coming/here
+  - multiple visits  
+  - multi-sequence + multi-modal
+
+## Opportunities of Imaging in R
+
+- Neural Networks: Keras and Tensorflow
+- Most analyses still do general linear models
+- Genomic analyses are very similar
+  - use Bioconductor tools in a new way
+- **More complex study designs are coming/here**
+  - **multiple visits**
+  - multi-sequence + multi-modal
+  
+## Opportunities: CONSORT diagrams
+
+<div style="font-size:10pt">https://imgflip.com/i/2bltgh</div>
+```{r, out.width = "90%"}
+knitr::include_graphics("figure/consort.jpg")
+```
+
+
+  
+## Opportunities of Stats in Imaging
+
+<div style="font-size:25pt">
+
+- Task fMRI: compare baseline to 1+ conditions
+- Smoothed to account for neighborhood
+- Run LM on time-series voxelwise with AR-type correlation with HRF-convolved design matrix ($X$) + motion/other factors ($Z$)
+
+$$
+Y_{iv} = X_{i} \beta_{iv} + Z_{i}\theta_{iv} + \varepsilon_{iv} \\
+\varepsilon_{iv} \sim N(0, \Sigma_{iv}) \\
+\Sigma_{iv} \sim \text{AR}
+$$
+
+$Z_{i}$ can be different for each $i$ (scrubbing), but usually isn't.
+
+</div>
+
+
+## Opportunities of Stats in Imaging
+
+- Get $β_i$ map in MNI space
+- Run t-test, random effects analysis (hard to find sometimes), or permutation test
+- Perform multiple comparisons correction (maybe with spatial compoent)
+
+</div>
+
+## Opportunities of Stats in Imaging 
+
+<div id = "left_col"  style="font-size:24pt">
+- What if the motion had a non-linear effect?
+  - currently: use derivatives and squared effects
+  - why not GAMs? (speed)`voxel` package 
+- fully Bayes (spatial) hard because of data size (maybe empirical)
+
+</div>
+<div id="right_col">
+```{r, out.width = "120%"}
+knitr::include_graphics("figure/nonlinear.jpg")
+```
+<div style="font-size:10pt">https://imgflip.com/i/2bltw2</div>
+</div>
+
+
+----
+<div id = "left_col">
+```{r, out.width = "70%"}
+knitr::include_graphics("figure/laser_brain.jpg")
+```
+</div>
+<div id="right_col">
+<h2> Opportunities of Stats in Imaging: Laser Brain</h2>
+<div style="font-size:10pt">https://imgflip.com/i/2blg14</div>
+
+<div>
+
+
+## Opportunities of Stats in Imaging 
+
+<div id = "left_col" style="font-size=25pt">
+- Add a second/multiple visits
+  - independent registration to the template?
+  - register to first time point?
+- Random effects can be extended
+  - but what about different tasks
+- **Multi-site/multi-scanner data from consortium**
+  - batch effects abound
+</div>
+<div id="right_col">
+```{r, out.width = "120%"}
+knitr::include_graphics("figure/batch_effect.jpg")
+```
+<div style="font-size:10pt">https://imgflip.com/i/2blid6</div>
+</div>
+  
+
+<!-- ## What can we do in R? -->
+
+<!-- 1. Read/Write Images -->
+<!-- 2. Visualization of Images -->
+<!-- 3. Inhomogeneity/Bias Field Correction -->
+<!-- 4. Skull Stripping/Brain Extraction -->
+<!-- 5. Image Registration -->
+<!-- 6. Tissue-Class Segmentation -->
+<!-- 7. Image operations -->
+<!-- 8. Complex Modeling -->
+<!-- 9. Neural Networks  -->
+
+## What we need: tutorials
+
+```{r, out.width = "95%"}
+knitr::include_graphics("figure/tutorials.png")
+```
+
+# What we need: Shiny GUIs
+
+## What we really need: tutorials on fMRI
+
+- `preprocessfMRI` from ANTsR
+- `spm12r` - https://neuroconductor.org/neuroc-help-fmri-analysis-spm12r
+- `fslr` - https://neuroconductor.org/neuroc-help-fmri-analysis-fslr
+
+## (Maybe) What we need: challenges
+
+
+https://grand-challenge.org/all_challenges/
+
+```{r, out.width = "95%"}
+knitr::include_graphics("figure/grandchallenges.png")
+```
+
+## "Pre"-processing is Important
+
+<div class = "left-half">
+```{r, out.width = "100%"}
+knitr::include_graphics("figure/know_processing.jpg")
+```
+<div style="font-size:10pt">https://imgflip.com/i/2blh8f</div>
+</div>
+<!-- <div class = "right-half"> -->
+<!-- ```{r, out.width = "100%"} -->
+<!-- knitr::include_graphics("figure/choose_smoothing.jpg") -->
+<!-- ``` -->
+<!-- <div style="font-size:10pt">https://imgflip.com/i/2blhsc</div> -->
+
+</div>
+
+## "Pre"-processing is Hard
+
+<div class = "left-half">
+```{r, out.width = "100%"}
+knitr::include_graphics("figure/know_processing.jpg")
+```
+<div style="font-size:10pt">https://imgflip.com/i/2blh8f</div>
+</div>
+<div class = "right-half">
+```{r, out.width = "75%"}
+knitr::include_graphics("figure/choose_smoothing.jpg")
+```
+
+<div style="font-size:10pt">https://imgflip.com/i/2blhsc</div>
+
+</div>
+
+
+## Registration
 <div class = "left-half">
 ANTsR/extrantsr
 
@@ -244,191 +383,152 @@ fslr
 - `fnirt_with_affine` - wraps above 2
 <div>
 
+# Do we need spatial results?  If not, why register to the template?
 
 ## Rigid-Body Registration
 
 - `registration` from `extrantsr` is a general function to do linear/non-linear registration, using `antsRegistration`
 
-```{r reg_flair, include= FALSE}
-reg_flair = flirt(infile = files['flair'], reffile = n4_t1, dof = 6)
-```
-
-```{r ants_reg, results='hide', message = FALSE}
-ants_reg_flair = registration(
-  filename = files["flair"], 
-  template.file = n4_t1, 
-  typeofTransform = "Rigid")
-```
-
-```{r write_trans, echo = FALSE, include= FALSE, dependson = "ants_reg"}
-output = "reg0GenericAffine.mat"
-file.copy(ants_reg_flair$fwdtransforms, output, overwrite = TRUE)
-ants_reg_flair$fwdtransforms = output
-```
-
-<img src="Reg_Figure_Option1_short_within2.png" style="width:50%">
+<img src="figure/Reg_Figure_Option1_short_within2.png" style="width:50%">
 
 
-## Rigid-Body Registration Results
+# Package Showcase
 
-```{r double_ortho, echo = FALSE, fig.width=8, fig.height=6}
-dd = dropEmptyImageDimensions(n4_t1 > 0,
-                              other.imgs = list(n4 = n4_t1, flair = ants_reg_flair$outfile))$other.imgs
-dd = lapply(dd, robust_window, probs = c(0, .99))
-double_ortho(dd$n4, dd$flair)
-```
+## Data
 
-## Rigid-Body Registration Slice
+- `EveTemplate`/`MNITemplate` - templates
+- `kirby21` series
+- `sri24` - SRI24 MRI Atlas
+- `malf.templates` - templates for label fusion
+- `neurohcp` - download data from HCP/INDI
+- `nitrcbot` - download data from NITRC
+- `neurovault` - download data from https://neurovault.org/
 
-```{r multi_overlay2, echo = FALSE, fig.width=6, fig.height=4, dependson="double_ortho"}
-multi_overlay(dd, z = floor(dim(dd$n4)[3]/2))
-```
+  
+## General Imaging Tools
+
+- `EBImage` - image processing and analysis
+- `magick` - Bindings to ImageMagick
+- OpenCV: [`swarm-lab/ROpenCVLite`](https://github.com/swarm-lab/ROpenCVLite) or [`ropenscilabs/opencv`](https://github.com/ropenscilabs/opencv)
 
 
-## Non-linear Registration
+## Starting from Raw Data/DICOM
 
-- Registering the skull-stripped T1-weighted image to the MNI 152 brain image
-- Uses Symmetric Normalization (SyN) [@avants_symmetric_2008]
-```{r ants_reg_syn, results='hide', echo = FALSE, message = FALSE}
-template.file = mni_fname(mm = "1", brain = TRUE)
-template.file = readnii(template.file)
-template.mask = gsub("[.]nii", "_mask.nii", mni_fname(mm = "1", brain = TRUE))
-template.mask = readnii(template.mask)
+- `oro.dicom` - read/write DICOM data
+- `dcm2niir` - uses `dcm2niix` from Chris Rorden
+- `divest` - `Rcpp` wrapped `dcm2niix`
+- `dcmtk` - interface package for DCMTK
+- `matlabr` - could use `dicomread` MATLAB code and excecute through R
 
-template.file = dropEmptyImageDimensions(template.mask, 
-                                         other.imgs = template.file)
-template.mask = template.file$outimg
-template.file = template.file$other.imgs
-ss_t1_to_mni = registration(
-  filename = ss_t1, 
-  template.file = template.file, 
-  typeofTransform = "SyN", remove.warp = FALSE,
-  outprefix = "temp")
-```
 
-```{r ants_reg_syn_show, eval = FALSE, message = FALSE}
-template.file = mni_fname(mm = "1", brain = TRUE)
-ss_t1_to_mni = registration(
-  filename = ss_t1, 
-  template.file = template.file, 
-  typeofTransform = "SyN", remove.warp = FALSE,
-  outprefix = "temp")
+## Interactive Visualization using papayaWidget
+
+```{r, cache=FALSE}
+library(papayaWidget)
+library(kirby21.t1)
+fname = get_t1_filenames()[1]
+papayaWidget::papaya(img = fname)
 ```
 
 
-## Non-linear Registration Results
-```{r ants_reg_syn_ers, results='hide', message = FALSE, dependson="ants_reg_syn", fig.width=8, fig.height=6, echo = FALSE}
-outfile = mask_img(ss_t1_to_mni$outfile, template.mask)
-double_ortho(template.file, outfile)
+## `ggneuro` visualization: `ggplot2` object
+
+```{r}
+ggneuro::ggortho(fname)
 ```
-
-
-## Tissue-Class Segmentation
-<div class = "col2">
-ANTsR/extrantsr: uses Atropos [@atropos]
-
-- `ANTsR` - `atropos`, `extrantsr` - `otropos` 
-```{r otropos}
-tissue_seg = otropos(a = ss_t1,
-  x = mask)
-```
-
-fslr: uses FAST [@zhang2001segmentation]
-
-- `--nobias` as an option does not do bias field correction
-```{r fast}
-fast_t1 = fast(ss_t1, opts = "--nobias")
-```
-
-See alos `spm12r_segment`
-
-<div>
-
-
-```{r ortho2_tissue, echo = FALSE, fig.width =7, fig.height=5, include = FALSE}
-dd = dropEmptyImageDimensions(
-  ss_t1 > 0, 
-  other.imgs = list(ss = ss_t1, seg = tissue_seg$segmentation))
-dd = dd$other.imgs
-dd$ss = robust_window(dd$ss, probs = c(0, .99))
-ortho2(dd$ss, dd$seg, col.y = alpha(hotmetal(), 0.5))
-```
-
-## ANTsR Tissue-Class Segmentation 
-
-```{r double_ortho_tissue, echo = FALSE, fig.width=8, fig.height=4, dependson = "ortho2_tissue"}
-double_ortho(dd$ss, dd$seg)
-```
-
-## fslr Tissue-Class Segmentation 
-
-```{r fslr_double_ortho_tissue, echo = FALSE, fig.width=8, fig.height=4}
-dd = dropEmptyImageDimensions(
-  ss_t1 > 0, 
-  other.imgs = list(ss = ss_t1, seg = fast_t1))
-dd = dd$other.imgs
-dd$ss = robust_window(dd$ss, probs = c(0, .99))
-double_ortho(dd$ss, dd$seg)
-```
-
-
-
-## Image operations
-<div class = "left-half">
-fslr
-
-- `fslsmooth` - Gaussian/box smoothing
-- `fslerode/fsldilate` - erosion/dilation
-- `fslfill/fslfill2` - fill holes 
-
-spm12r
-
-- `spm_bwlabel` - label connected components
-</div>
-<div class = "right-half">
-ANTsR
-
-- `smooth_image` - Gaussian smoothing
-- `oMath("ME")/oMath("MD")` - erosion/dilation
-- `oMath("FillHoles")` - fill holes
-- `oMath("GetLargestComponent")` - find largest components
-</div>
-
-
-
-## fMRI 
-- `fsl_slicetimer` - slice timing correction
-- `ANTsR::preprocessfMRI` 
-- `spm12r` 
-    - slice timing correction
-    - realignment - get motion correction parameters
-    - co-registration
-    - segmentation/normalization to a template
 
 
 ## Intensity Normalization
 
-- WhiteStripe [@shinohara_statistical_2014]
-- Whole brain z-scoring 
-- Histogram matching 
+- `whitestripe` - WhiteStripe [@shinohara_statistical_2014]
+- Quantile transform `quantile_img` (in `neurobase`)
+- Whole brain z-scoring: `zscore_img` in `neurobase`
+- `RAVEL` - @ravel
+- Histogram matching (in `RAVEL`)
 - General standardization methods 
-- RAVEL (talk to Taki)
 
-## Overview
+## MS Lesion Segmentation
+
+- `sublime` - @sublime
+- `oasis` - @oasis
+- `mimosa` - @mimosa
+- `smri.process` - my package on sMRI processing
+
+  
+## Step 1: Image Processing: Workflow 
+<div class="left-half">
+<img src="figure/processing_workflow.png" style="width:60%; display: block; margin: auto;"> 
+</div>
+<div class="right-half" style="font-size:25pt">
+The N4 [@tustison_n4itk_2010] EM-style model assumed is:
+$$
+\log(x(v)) = \log(u(v)) + \log( f(v) )
+$$
+
+- $x$: given image
+- $u$: uncorrupted image
+- $f$: bias field 
+- $v$: location in the image
+</div>
+
+
+## Step 1: Image Processing: MALF
+
+<div class="container">
+<div id="left_col">
+Figure from MASS paper [@mass]:
+
+<img src="figure/malf_figure.jpg" style="width: 60%; display: block; margin: auto;">
+</div>
+<div id="right_col" style="font-size:25pt">
+- Register templates to an image using the T1 for that subject
+- Apply transformation to the label/mask
+- Average each voxel over all templates
+    - there are "smarter" (e.g. weighted) ways
+</div>
+</div>
+
+## Step 2: Create Predictors for each Sequence 
+
+<div id="left_col">
+<img src="figure/ms_covariates.png" style="width:100%; display: block; margin: auto;" alt="Preds">  
+</div> 
+<div id="right_col" style="font-size:25pt"> 
+- Predictors created with intensity-normalized data
+  - Quantile images, smoothers, local moments
+- Tissue class probability with local moments: MALF and FAST [@fast]
+- Z-score to a population template 
+</div>
+
+## A package to do all this: `smri.process`
+
+- GitHub package (`muschellij2/smri.process`)
+
+<img src="figure/processing_code.png" style="width:45%; display: block; margin: auto;" alt="code">
+
+
+
+## Conclusions
 
 - Many methods are being developed for processing neuroimaging in R
-- Analysis tools are largely already in R
-- These are not standardized nor centralized
-- Develop something like BioConductor
+- Analysis tools exist but need adaptation 
+- Develop more standardization like BioConductor
     - standard data structures
-    - standard data sets
-    - NITRC isn't exactly what we want
 - GitHub and Neuroconductor
 
-## Interactive Visualization using papayar
 
-<div class="papaya" data-params="params"></div>
+# Where else can we lead?
+
+
+<!-- ## Visualization: 3-dimensions -->
+
+
+<!-- ```{r spinning_brain, message=FALSE, results='hide', eval = FALSE} -->
+<!-- devtools::source_gist("bd40d10afabc503d71e8") -->
+<!-- ``` -->
+
+<!-- <img src="cage.gif" style="width: 45%; display: block; margin: auto;"> -->
 
 ## Bibliography
 
-
+<div style = "font-size: 12pt">
