@@ -189,7 +189,7 @@ knitr::include_graphics("figure/always_use_r.jpg")
 - Not much different than Python 
     - scikit-learn/ Nipype
 - Neural Networks 
-- BME have tools to do advanced statistical analysis
+- BME have tools for advanced statistical analysis
 - **Study design is not as valued in imaging (neuro)**
   - one stronghold of statisticians
 - Credit/Incentives for software
@@ -505,6 +505,14 @@ Figure from MASS paper [@mass]:
 - GitHub package (`muschellij2/smri.process`)
 
 <img src="figure/processing_code.png" style="width:45%; display: block; margin: auto;" alt="code">
+
+
+## Publishing software
+
+- R Journal - see `rticles::rjournal_article()`
+- F1000 - https://f1000research.com/collections/Neuroconductor
+- JOSS - https://joss.theoj.org/
+- JSS - see `rticles::jss_article()`
 
 
 
