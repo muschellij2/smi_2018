@@ -30,6 +30,9 @@ opts_chunk$set(cache = TRUE, comment = "", warning = FALSE, echo = FALSE,
                message = FALSE)
 library(ggplot2)
 library(readr)
+library(dplyr)
+library(directlabels)
+
 # library(scales)
 # library(ANTsR)
 # library(extrantsr)
@@ -200,9 +203,7 @@ knitr::include_graphics("figure/always_use_r.jpg")
 - Most analyses still do general linear models
 - Genomic analyses are very similar
   - use Bioconductor tools in a new way
-- More complex study designs are coming/here
-  - multiple visits  
-  - multi-sequence + multi-modal
+
 
 ## Opportunities of Imaging in R
 
@@ -210,9 +211,7 @@ knitr::include_graphics("figure/always_use_r.jpg")
 - Most analyses still do general linear models
 - Genomic analyses are very similar
   - use Bioconductor tools in a new way
-- **More complex study designs are coming/here**
-  - **multiple visits**
-  - multi-sequence + multi-modal
+
   
 ## Opportunities: CONSORT diagrams
 
@@ -282,16 +281,13 @@ knitr::include_graphics("figure/laser_brain.jpg")
 
 ## Opportunities of Stats in Imaging 
 
-<div id = "left_col" style="font-size=25pt">
-- Add a second/multiple visits
-  - independent registration to the template?
-  - register to first time point?
-- Random effects can be extended
-  - but what about different tasks
+<div id = "left_col" style="font-size:22pt">
 - **Multi-site/multi-scanner data from consortium**
-  - batch effects abound
+  - batch effects abound  
 </div>
-<div id="right_col">
+<div id="right_col" style="font-size:22pt">
+
+
 ```{r, out.width = "120%"}
 knitr::include_graphics("figure/batch_effect.jpg")
 ```
@@ -317,16 +313,16 @@ knitr::include_graphics("figure/batch_effect.jpg")
 knitr::include_graphics("figure/tutorials.png")
 ```
 
-# What we need: Shiny GUIs
-
 ## What we really need: tutorials on fMRI
 
 - `preprocessfMRI` from ANTsR
 - `spm12r` - https://neuroconductor.org/neuroc-help-fmri-analysis-spm12r
 - `fslr` - https://neuroconductor.org/neuroc-help-fmri-analysis-fslr
 
-## (Maybe) What we need: challenges
+# What we need: Shiny GUIs
 
+
+## (Maybe) What we need: challenges
 
 https://grand-challenge.org/all_challenges/
 
@@ -368,29 +364,6 @@ knitr::include_graphics("figure/choose_smoothing.jpg")
 </div>
 
 
-## Registration
-<div class = "left-half">
-ANTsR/extrantsr
-
-- `antsRegistration` - rigid/affine/non-linear diffeomorphic
-- `extrantsr::registration` - wraps antsRegistration to use `nifti` objects
-</div>
-<div class = "right-half">
-fslr
-
-- `flirt` - linear/affine registration
-- `fnirt` - non-linear registration (need affine first)
-- `fnirt_with_affine` - wraps above 2
-<div>
-
-# Do we need spatial results?  If not, why register to the template?
-
-## Rigid-Body Registration
-
-- `registration` from `extrantsr` is a general function to do linear/non-linear registration, using `antsRegistration`
-
-<img src="figure/Reg_Figure_Option1_short_within2.png" style="width:50%">
-
 
 # Package Showcase
 
@@ -410,6 +383,7 @@ fslr
 - `EBImage` - image processing and analysis
 - `magick` - Bindings to ImageMagick
 - OpenCV: [`swarm-lab/ROpenCVLite`](https://github.com/swarm-lab/ROpenCVLite) or [`ropenscilabs/opencv`](https://github.com/ropenscilabs/opencv)
+- `ANTsR` - a large imaging suite (mainly neuro)
 
 
 ## Starting from Raw Data/DICOM
@@ -472,7 +446,7 @@ $$
 </div>
 
 
-## Step 1: Image Processing: MALF
+## Image Processing: MALF
 
 <div class="container">
 <div id="left_col">
@@ -493,7 +467,7 @@ Figure from MASS paper [@mass]:
 <div id="left_col">
 <img src="figure/ms_covariates.png" style="width:100%; display: block; margin: auto;" alt="Preds">  
 </div> 
-<div id="right_col" style="font-size:25pt"> 
+<div id="right_col" style="font-size:22pt"> 
 - Predictors created with intensity-normalized data
   - Quantile images, smoothers, local moments
 - Tissue class probability with local moments: MALF and FAST [@fast]
@@ -509,12 +483,74 @@ Figure from MASS paper [@mass]:
 
 ## Publishing software
 
-- R Journal - see `rticles::rjournal_article()`
+- R Journal - see `rticles::rjournal_article()` (only accept if in CRAN)
 - F1000 - https://f1000research.com/collections/Neuroconductor
 - JOSS - https://joss.theoj.org/
 - JSS - see `rticles::jss_article()`
+- `cranlogs` track downloads
+- neuroconductor API tracks downloads
 
+## Tracking downloads
 
+```{r}
+if (!require(cranlogs)) {
+  library(devtools)
+  install_github("metacran/cranlogs")
+  library(cranlogs)
+}
+first_date = "2014-01-10"
+today = Sys.Date()
+long_today = format(Sys.time(), "%B %d, %Y")
+packs = c("brainR", "cifti", "diffr", "fedreporter", "freesurfer", "fslr", 
+"gcite", "gifti", "glassdoor", "kirby21.base", "kirby21.fmri", 
+"kirby21.t1", "matlabr", "neurobase", "neurohcp", "neurovault", 
+"papayar", "rscopus", "spm12r", "stapler", "WhiteStripe")
+# from muschpack
+gh = c("alvin", "biobankr", 
+       "dcm2niir", "dcmtk", "dhs", "drammsr", 
+       "extrantsr", "ggneuro", "ghtravis", 
+       "gluc", "greedyreg", "ichseg", "itksnapr", 
+       "jhudsl", "kirby21.asl", "kirby21.det2", "kirby21.dti", 
+       "kirby21.flair", "kirby21.mt", "kirby21.smri", "kirby21.survey", 
+       "kirby21.t2", "kirby21.vaso", "leanpubr", "lungct", "malf.templates", "msmri",
+       "neuroc.deps", "neurocInstall", "papayaWidget",  "rcamino", 
+       "robex", "smri.process")
+# packs = c(packs, gh)
+packs = sort(unique(packs))
+
+packs = unique(packs)
+dl = cran_downloads( from = first_date, to = today,
+	packages = packs)
+cum_dl = dl %>% 
+  arrange(date) %>% 
+  group_by(package, date) %>% 
+  summarise(count = sum(count)) 
+cum_dl = cum_dl %>% 
+  arrange(date) %>% 
+  group_by(package) %>% 
+  mutate(count = cumsum(count))
+cum_dl = cum_dl %>% 
+  filter(count > 0)
+
+cum_dl = cum_dl %>% 
+  group_by(package) %>% 
+  mutate(label = if_else(
+    date == max(date), 
+    as.character(package), NA_character_)) 
+
+max_date = max(cum_dl$date)
+min_date = min(cum_dl$date)
+
+ggplot(cum_dl, aes(x = date, y = count, colour = package)) + 
+  geom_line() +
+  guides(colour = FALSE) +
+  scale_x_date(date_breaks = '6 months', date_labels = '%Y') +
+  xlab('') + ylab("Year") + theme_bw() +
+  geom_dl(aes(label = package), 
+          method = list(dl.trans(x = x + 0.2), 
+                        "last.points", cex = 0.8)) + 
+  xlim(c(min_date, max_date + 6*35))
+```
 
 ## Conclusions
 
@@ -525,7 +561,7 @@ Figure from MASS paper [@mass]:
 - GitHub and Neuroconductor
 
 
-# Where else can we lead?
+# Where else can statisicians lead?
 
 
 <!-- ## Visualization: 3-dimensions -->
@@ -536,6 +572,24 @@ Figure from MASS paper [@mass]:
 <!-- ``` -->
 
 <!-- <img src="cage.gif" style="width: 45%; display: block; margin: auto;"> -->
+
+# Do we need spatial results?  If not, why register to the template?
+
+## Registration
+<div class = "left-half">
+ANTsR/extrantsr
+
+- `antsRegistration` - rigid/affine/non-linear diffeomorphic
+- `extrantsr::registration` - wraps antsRegistration to use `nifti` objects
+</div>
+<div class = "right-half">
+fslr
+
+- `flirt` - linear/affine registration
+- `fnirt` - non-linear registration (need affine first)
+- `fnirt_with_affine` - wraps above 2
+<div>
+
 
 ## Bibliography
 
