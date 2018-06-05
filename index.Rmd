@@ -200,10 +200,20 @@ knitr::include_graphics("figure/always_use_r.jpg")
 
 ## Opportunities of Imaging in R
 
+<div id = "left_col">
 - Neural Networks: Keras and Tensorflow
 - Most analyses still do general linear models
 - Genomic analyses are very similar
   - use Bioconductor tools in a new way
+</div>
+<div id = "right_col">
+```{r, out.width = "100%"}
+knitr::include_graphics("figure/bioc_tools.jpg")
+```
+<div style="font-size:10pt">https://imgflip.com/i/2bmb3c</div>
+
+</div>
+
 
 
 ## Opportunities of Imaging in R
