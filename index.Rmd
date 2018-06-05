@@ -55,7 +55,11 @@ library(directlabels)
 
 ## CRAN Packages 5-10 years ago vs. today
 
-- BioC+GitHub `15258` <p style="font-size:12pt">(https://www.rdocumentation.org/)</div>
+<div style="font-size:25pt">
+
+- BioC+GitHub `15258` (https://www.rdocumentation.org/)
+</div>
+
 <div style="font-size:10pt">
 Script from [https://gist.github.com/daroczig/3cf06d6db4be2bbe3368](https://gist.github.com/daroczig/3cf06d6db4be2bbe3368)
 </div>
@@ -202,7 +206,6 @@ knitr::include_graphics("figure/always_use_r.jpg")
 
 <div id = "left_col">
 - Neural Networks: Keras and Tensorflow
-- Most analyses still do general linear models
 - Genomic analyses are very similar
   - use Bioconductor tools in a new way
 </div>
@@ -214,17 +217,8 @@ knitr::include_graphics("figure/bioc_tools.jpg")
 
 </div>
 
-
-
-## Opportunities of Imaging in R
-
-- Neural Networks: Keras and Tensorflow
-- Most analyses still do general linear models
-- Genomic analyses are very similar
-  - use Bioconductor tools in a new way
-
-  
 ## Opportunities: CONSORT diagrams
+
 
 <div style="font-size:10pt">https://imgflip.com/i/2bltgh</div>
 ```{r, out.width = "90%"}
@@ -233,7 +227,7 @@ knitr::include_graphics("figure/consort.jpg")
 
 
   
-## Opportunities of Stats in Imaging
+## Opportunities: Moving from Linear Models
 
 <div style="font-size:25pt">
 
