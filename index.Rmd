@@ -5,6 +5,7 @@ author: "John Muschelli http://johnmuschelli.com/smi_2018"
 output:
   ioslides_presentation:
     self_contained: false
+    md_extensions: -markdown_in_html_blocks
     includes:
       in_header: header.html
     css: neuroconductor.css
@@ -293,7 +294,25 @@ knitr::include_graphics("figure/batch_effect.jpg")
 ```
 <div style="font-size:10pt">https://imgflip.com/i/2blid6</div>
 </div>
-  
+
+## Opportunities: Data
+
+<table border="1">
+    <tr>
+    <td height="250"><img src="figure/oasis.png" style="width:60%"></td>
+    <td height="250"><img src="figure/biobank.png" style="width:80%"></td>
+    <td height="250"><img src="figure/neurovault.png" style="width:80%"></td>
+    <td height="250"><img src="figure/tcia.png" style="width:80%"></td>
+    </tr>
+    <tr>
+    <td height="250"><img src="figure/ADNI.png" style="width:60%"></td>
+    <td height="250"><img src="figure/coins.gif" style="width:80%"></td>
+    <td height="250"><img src="figure/INDI.png" style="width:70%"></td>
+    <td height="250"><img src="figure/fitbir.png" style="width:70%"></td>
+    </tr>
+</table>
+
+
 
 <!-- ## What can we do in R? -->
 
@@ -320,7 +339,6 @@ knitr::include_graphics("figure/tutorials.png")
 - `fslr` - https://neuroconductor.org/neuroc-help-fmri-analysis-fslr
 
 # What we need: Shiny GUIs
-
 
 ## (Maybe) What we need: challenges
 
@@ -576,6 +594,7 @@ ggplot(cum_dl, aes(x = date, y = count, colour = package)) +
 # Do we need spatial results?  If not, why register to the template?
 
 ## Registration
+
 <div class = "left-half">
 ANTsR/extrantsr
 
